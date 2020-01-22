@@ -94,7 +94,7 @@ void myfree(void *ptr)
 			// printf("%d   %d\n",power,num_del );
 
 			struct node* temp=free_list_head[power];
-			while(num_del &&temp!=NULL)
+			while(num_del)
 			{
 				if(bucket_size<24)
 				printf("%d fd %p  %d \n",num_del ,temp,metadata_address->allocation_size );
@@ -142,26 +142,24 @@ void myfree(void *ptr)
 
 void *mymalloc(size_t size)
 {
-	int power=0,bucket_size,temp_size=size;
+	int power = 0, bucket_size, temp_size = size;
 	if(size>4080)
 		temp_size += 16;
+	if(temp_size&(temp_size-1)==0)
+		power--;
+
 	//nearest power of 2 greater than or equal to size
 	while(temp_size != 0)
 	{
 		temp_size >>= 1;
 		power++;
 	}
-	temp_size=size;
-	if(size>4080)
-		temp_size += 16;
-	if(temp_size&(temp_size-1)==0)
-		power--;
 	bucket_size = 1<<power;
 
 	if(size>4080)
 	{
 		void* page =  alloc_from_ram(bucket_size);
-		struct metadata* page_data = page;
+		struct metadata* page_data = (struct metadata*)page;
 		page_data->allocation_size = bucket_size;
 		page_data->free_bytes_available = -1;
 		return page + 16;
@@ -172,12 +170,14 @@ void *mymalloc(size_t size)
 		if( free_list_head[power] == NULL ) //no memory object of required size
 		{
 			void* page =  alloc_from_ram(PAGE_SIZE);
-			struct metadata* page_data = page;
+			struct metadata* page_data = (struct metadata*)page;
 			void* upper_limit=page+PAGE_SIZE -bucket_size;
-			if(bucket_size == PAGE_SIZE)
+			if(bucket_size == PAGE_SIZE || bucket_size == 16)
 				upper_limit+=bucket_size;
+			int c=0;
 			for( void* i = page + 16 ; i < upper_limit ; i += bucket_size)
 			{
+				c++;
 				struct node* my_node = (struct node*)i;
 				my_node->prev = NULL;
 				my_node->next = NULL;
@@ -193,6 +193,7 @@ void *mymalloc(size_t size)
 					free_list_head[power] = my_node;
 				}
 			}
+			// printf("%d %d\n",c,bucket_size );
 			
 			page_data->allocation_size = bucket_size;
 			page_data->free_bytes_available = 4096;
