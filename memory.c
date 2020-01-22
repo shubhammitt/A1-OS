@@ -94,9 +94,8 @@ void myfree(void *ptr)
 			// printf("%d   %d\n",power,num_del );
 
 			struct node* temp=free_list_head[power];
-			while(num_del && temp!=NULL)
+			while(num_del)
 			{
-				// if(bucket_size<24)
 				// printf("%d fd %p \n",num_del ,temp);
 				if((struct metadata*)((unsigned long)(temp)& ~0xfff)==metadata_address)
 				{
