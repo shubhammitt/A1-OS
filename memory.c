@@ -94,9 +94,10 @@ void myfree(void *ptr)
 			// printf("%d   %d\n",power,num_del );
 
 			struct node* temp=free_list_head[power];
-			while(num_del)
+			while(num_del &&temp!=NULL)
 			{
-				// printf("%d fd %p \n",num_del ,temp);
+				if(bucket_size<24)
+				printf("%d fd %p  %d \n",num_del ,temp,metadata_address->allocation_size );
 				if((struct metadata*)((unsigned long)(temp)& ~0xfff)==metadata_address)
 				{
 					num_del--;
@@ -150,6 +151,11 @@ void *mymalloc(size_t size)
 		temp_size >>= 1;
 		power++;
 	}
+	temp_size=size;
+	if(size>4080)
+		temp_size += 16;
+	if(temp_size&(temp_size-1)==0)
+		power--;
 	bucket_size = 1<<power;
 
 	if(size>4080)
