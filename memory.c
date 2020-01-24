@@ -31,7 +31,8 @@ static void free_ram(void *addr, size_t size)
 	munmap(addr, size);
 }
 
-struct node* free_list_head[13]={};
+static struct node* free_list_head[13]={};
+static unsigned long long help=~0xfff;
 
 struct node
 {
@@ -47,6 +48,8 @@ struct metadata
 int round_up(int n)
 {
 	int c = 0;
+	if(((n-1)&n)==0)
+		c--;
 	while ( n )
 	{
 		c++;
@@ -102,7 +105,7 @@ void delete_node(int power,struct node** temp)
 void myfree(void *ptr)
 {
 	// get page metadata of given ptr 
-	struct metadata* metadata_address = (struct metadata*)((unsigned long)(ptr)& ~0xfff);
+	struct metadata* metadata_address = (struct metadata*)((unsigned long)(ptr)& help);
 
 	// size of ptr > 4080
 	if ( metadata_address -> allocation_size >= PAGE_SIZE && metadata_address -> free_bytes_available == -1)
@@ -115,7 +118,7 @@ void myfree(void *ptr)
 		metadata_address -> free_bytes_available += metadata_address -> allocation_size;
 		
 		int bucket_size = metadata_address -> allocation_size;
-		int power = round_up(bucket_size) - 1;
+		int power = round_up(bucket_size);
 
 		// whole page is free
 		if (metadata_address -> free_bytes_available == PAGE_SIZE)
@@ -130,7 +133,7 @@ void myfree(void *ptr)
 
 			while ( num_del )
 			{
-				if ( (struct metadata*)((unsigned long)(temp)& ~0xfff) == metadata_address )
+				if ( (struct metadata*)((unsigned long long)(temp)& help) == metadata_address )
 				{
 					num_del--;
 					delete_node(power,&temp);
@@ -151,9 +154,9 @@ void *mymalloc(size_t size)
 {
 	int power = 0, bucket_size, temp_size = size;
 	if ( size > 4080 )
-		temp_size += 16; // 16 bytes for meatdata
-	if( temp_size & (temp_size - 1) == 0 )  // if tempsize is exact power of 2
-		power--;
+		temp_size += 16; // 16 bytes for metadata
+	if(temp_size == 8)
+		temp_size <<= 1;
 
 	//nearest power of 2 greater than or equal to size
 	power += round_up(temp_size);
@@ -184,10 +187,11 @@ void *mymalloc(size_t size)
 			// insert node in free list
 			for( void* i = page + 16 ; i < upper_limit ; i += bucket_size)
 				insert_node(power,i);
+
 		}
 		// removing a node from free list and returning it
 		struct node* ptr = free_list_head[power];
-		struct metadata* _metadata = (struct metadata*)((unsigned long long)(ptr)& ~0xfff);  // page metadata of the first memory object present in the free list
+		struct metadata* _metadata = (struct metadata*)((unsigned long long)(ptr)& help);  // page metadata of the first memory object present in the free list
 		_metadata -> free_bytes_available -= bucket_size;
 		
 		free_list_head[power] = ptr -> next; // changing free list head
@@ -195,7 +199,7 @@ void *mymalloc(size_t size)
 			free_list_head[power] -> prev = NULL;
 
 		ptr -> next = NULL;
-		
+	
 		return ptr;
 	}
 }
