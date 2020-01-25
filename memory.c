@@ -156,7 +156,7 @@ void *mymalloc(size_t size)
 	if ( size > 4080 )
 		temp_size += 16; // 16 bytes for metadata
 	if(temp_size == 8)
-		temp_size <<= 1;
+		temp_size = 16;
 
 	//nearest power of 2 greater than or equal to size
 	power += round_up(temp_size);
