@@ -108,7 +108,7 @@ void myfree(void *ptr)
 	struct metadata* metadata_address = (struct metadata*)((unsigned long)(ptr)& help);
 
 	// size of ptr > 4080
-	if ( metadata_address -> allocation_size >= PAGE_SIZE && metadata_address -> free_bytes_available == -1)
+	if ( metadata_address -> allocation_size >= PAGE_SIZE)
 	{
 		free_ram(metadata_address,metadata_address -> allocation_size);
 	}
@@ -121,13 +121,10 @@ void myfree(void *ptr)
 		int power = round_up(bucket_size);
 
 		// whole page is free
-		if (metadata_address -> free_bytes_available == PAGE_SIZE)
+		if (metadata_address -> free_bytes_available == 4080 )
 		{
 			// number of nodes to be deleted from free_list to free the page
-			int num_del = (PAGE_SIZE - 16) / bucket_size;
-			if ( bucket_size == PAGE_SIZE )
-				num_del = 1;
-			num_del--;
+			int num_del = (PAGE_SIZE - 16) / bucket_size - 1;
 
 			struct node* temp = free_list_head[power];
 
@@ -167,7 +164,7 @@ void *mymalloc(size_t size)
 		void* page =  alloc_from_ram(bucket_size);
 		struct metadata* page_data = (struct metadata*)page;
 		page_data -> allocation_size = bucket_size;
-		page_data -> free_bytes_available = -1;  // using -1 as a flag to detect asked size was more than  4080 bytes
+		page_data -> free_bytes_available = bucket_size - 16;  // using -1 as a flag to detect asked size was more than  4080 bytes
 		return page + 16;
 	}
 	else
@@ -177,23 +174,26 @@ void *mymalloc(size_t size)
 			void* page =  alloc_from_ram(PAGE_SIZE);
 			struct metadata* page_data = (struct metadata*) page;
 			// details of page metadata
+			if( bucket_size == 4096 )
+				bucket_size = 4080;
 			page_data -> allocation_size = bucket_size;
-			page_data -> free_bytes_available = 4096;
+			page_data -> free_bytes_available = 4080;
 
-			void* upper_limit = page + PAGE_SIZE - bucket_size; // last address which I can use as a node for this object
-			if(bucket_size == PAGE_SIZE || bucket_size == 16)
-				upper_limit += bucket_size;
-
+			int available_size = 4080;
 			// insert node in free list
-			for( void* i = page + 16 ; i < upper_limit ; i += bucket_size)
+			for( void* i = page + 16 ;available_size >= bucket_size ; i += bucket_size , available_size -= bucket_size)
+			{
 				insert_node(power,i);
+			}
 
 		}
 		// removing a node from free list and returning it
 		struct node* ptr = free_list_head[power];
 		struct metadata* _metadata = (struct metadata*)((unsigned long long)(ptr)& help);  // page metadata of the first memory object present in the free list
 		_metadata -> free_bytes_available -= bucket_size;
-		
+
+		assert(_metadata->free_bytes_available >=0 );
+
 		free_list_head[power] = ptr -> next; // changing free list head
 		if ( free_list_head[power] != NULL )
 			free_list_head[power] -> prev = NULL;
